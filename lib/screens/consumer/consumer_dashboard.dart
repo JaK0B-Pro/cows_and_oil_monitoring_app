@@ -11,6 +11,7 @@ import '../transactions/transaction_list_screen.dart';
 import '../transactions/new_transaction_screen.dart';
 import '../driver/driver_management_screen.dart';
 import '../reports/monthly_expenses_screen.dart';
+import 'driver_transactions_screen.dart';
 import 'package:intl/intl.dart';
 
 class ConsumerDashboard extends StatefulWidget {
@@ -351,54 +352,88 @@ class _DashboardHome extends StatelessWidget {
 
   Widget _buildDriverCard(BuildContext context, DriverModel driver) {
     final percentage = (driver.totalLitersConsumed / driver.monthlyLimit * 100).clamp(0, 100);
+    final dataService = Provider.of<DataService>(context, listen: false);
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: AppTheme.cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: AppTheme.primaryColor,
-                child: Text(
-                  driver.name[0].toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DriverTransactionsScreen(
+              driver: driver,
+              dataService: dataService,
+            ),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: AppTheme.cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: AppTheme.primaryColor,
+                  child: Text(
+                    driver.name[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        driver.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (driver.vehicleNumber != null)
+                        Text(
+                          driver.vehicleNumber!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      driver.name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    if (driver.vehicleNumber != null)
-                      Text(
-                        driver.vehicleNumber!,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      '${driver.totalLitersConsumed.toStringAsFixed(1)}L',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                    Text(
+                      'of ${driver.monthlyLimit.toStringAsFixed(0)}L',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
+              ],
+            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                'Tap to view transactions',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${driver.totalLitersConsumed.toStringAsFixed(1)}L',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'of ${driver.monthlyLimit.toStringAsFixed(0)}L',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              const SizedBox(width: 4),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 12,
+                color: Colors.grey[600],
               ),
             ],
           ),
@@ -416,6 +451,7 @@ class _DashboardHome extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
