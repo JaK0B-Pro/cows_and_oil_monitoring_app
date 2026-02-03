@@ -1,0 +1,148 @@
+workflows:
+  # Android Workflow
+  android-workflow:
+    name: Android Build
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_play # For Play Store deployment (optional)
+      vars:
+        PACKAGE_NAME: "com.oilmazout.tracker"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up local.properties
+        script: | 
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Get Flutter packages
+        script: | 
+          flutter packages pub get
+      - name: Build AAB for Google Play
+        script: | 
+          flutter build appbundle --release
+      - name: Build APK for direct distribution
+        script: | 
+          flutter build apk --release --split-per-abi
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/mapping.txt
+    publishing:
+      email:
+        recipients:
+          - fezzaalamriyaakoub@gmail.com
+        notify:
+          success: true
+          failure: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal # Options: internal, alpha, beta, production
+        submit_as_draft: true
+
+  # iOS Workflow - FREE TESTING (No Apple Developer Account)
+  ios-workflow-free:
+    name: iOS Build (Free - Development)
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.oilmazout.tracker
+      vars:
+        BUNDLE_ID: "com.oilmazout.tracker"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: | 
+          flutter packages pub get
+      - name: Install pods
+        script: | 
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS app for simulator
+        script: | 
+          flutter build ios --simulator --debug
+      - name: Build iOS app for device (development)
+        script: | 
+          flutter build ios --debug --no-codesign
+    artifacts:
+      - build/ios/iphoneos/*.app
+      - build/ios/iphonesimulator/*.app
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - fezzaalamriyaakoub@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  
+  # Combined Workflow (Both platforms)
+  all-platforms-workflow:
+    name: Build Android & iOS
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    triggering:
+      events:
+        - push
+        - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'master'
+          include: true
+          source: true
+    environment:
+      android_signing:
+        - keystore_reference
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.oilmazout.tracker
+      vars:
+        PACKAGE_NAME: "com.oilmazout.tracker"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up local.properties
+        script: | 
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Get Flutter packages
+        script: | 
+          flutter packages pub get
+      - name: Build Android APK
+        script: | 
+          flutter build apk --release --split-per-abi
+      - name: Build Android AAB
+        script: | 
+          flutter build appbundle --release
+      - name: Set up code signing for iOS
+        script: | 
+          xcode-project use-profiles
+      - name: Install CocoaPods dependencies
+        script: | 
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS IPA
+        script: | 
+          flutter build ipa --release
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/*.apk
+      - build/ios/ipa/*.ipa
+      - build/**/outputs/**/mapping.txt
+    publishing:
+      email:
+        recipients:
+          - fezzaalamriyaakoub@gmail.com
+        notify:
+          success: true
+          failure: true
