@@ -43,19 +43,14 @@ workflows:
         track: internal # Options: internal, alpha, beta, production
         submit_as_draft: true
 
-  # iOS Workflow - FREE TESTING (No Apple Developer Account)
-  ios-workflow-free:
-    name: iOS Build (Free - Development)
+  # iOS Workflow - For Appetize.io (Simulator Build)
+  ios-simulator:
+    name: iOS Simulator Build (For Appetize.io)
     max_build_duration: 120
     instance_type: mac_mini_m1
     environment:
-      ios_signing:
-        distribution_type: development
-        bundle_identifier: com.oilmazout.tracker
       vars:
         BUNDLE_ID: "com.oilmazout.tracker"
-        XCODE_WORKSPACE: "Runner.xcworkspace"
-        XCODE_SCHEME: "Runner"
       flutter: stable
       xcode: latest
       cocoapods: default
@@ -66,15 +61,53 @@ workflows:
       - name: Install pods
         script: | 
           find . -name "Podfile" -execdir pod install \;
-      - name: Build iOS app for simulator
+      - name: Build iOS app for simulator (Appetize.io compatible)
         script: | 
           flutter build ios --simulator --debug
-      - name: Build iOS app for device (development)
+          
+          # Create a zip file for easier download
+          cd build/ios/iphonesimulator
+          zip -r Runner.app.zip Runner.app
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app.zip
+      - build/ios/iphonesimulator/*.app
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - fezzaalamriyaakoub@gmail.com
+        notify:
+          success: true
+          failure: true
+          
+  # iOS Workflow - For Your iPhone (7-Day Free Provisioning)
+  ios-device-free:
+    name: iOS Device Build (For Your iPhone - Free)
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      vars:
+        BUNDLE_ID: "com.oilmazout.tracker"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: | 
+          flutter packages pub get
+      - name: Install pods
+        script: | 
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS app for device (no codesign - sign later in Xcode)
         script: | 
           flutter build ios --debug --no-codesign
+          
+          # Create archive for easier handling
+          cd build/ios/iphoneos
+          zip -r Runner.app.zip Runner.app
     artifacts:
+      - build/ios/iphoneos/Runner.app.zip
       - build/ios/iphoneos/*.app
-      - build/ios/iphonesimulator/*.app
       - /tmp/xcodebuild_logs/*.log
     publishing:
       email:
