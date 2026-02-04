@@ -50,42 +50,54 @@ workflows:
       - name: Get Flutter packages
         script: | 
           flutter pub get
-      - name: Clean and prepare iOS
+      - name: Clean build
         script: | 
           flutter clean
-          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
-          rm -rf ~/Library/Caches/CocoaPods
-          rm -rf ~/.cocoapods/repos/trunk
-      - name: Generate iOS project files
-        script: | 
-          flutter precache --ios
-          flutter build ios-framework --debug
+          cd ios
+          rm -rf Pods Podfile.lock .symlinks
+          cd ..
       - name: Install CocoaPods
         script: | 
           cd ios
-          pod cache clean --all
-          pod deintegrate || true
-          pod setup
-          pod install --verbose
+          pod install
           cd ..
-      - name: Build iOS app for simulator
+      - name: Build iOS Simulator with xcodebuild (Appetize.io format)
         script: | 
-          flutter build ios --simulator --debug
-      - name: Create zip archive
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath ../build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE=""
+          cd ..
+      - name: Locate and zip the .app file
         script: | 
-          if [ -d "build/ios/iphonesimulator/Runner.app" ]; then
-            cd build/ios/iphonesimulator
-            zip -r Runner.app.zip Runner.app
-            cd ../../..
-            echo "✅ Simulator build created successfully"
-          else
-            echo "❌ Build failed - Runner.app not found"
+          # Find the .app file in the build directory
+          APP_PATH=$(find build/ios/Build/Products/Debug-iphonesimulator -name "Runner.app" -type d | head -n 1)
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ Error: Runner.app not found in build output"
+            ls -R build/ios/Build/Products/
             exit 1
           fi
+          
+          echo "✅ Found app at: $APP_PATH"
+          
+          # Create zip in a clean directory
+          mkdir -p build/appetize
+          cd "$(dirname "$APP_PATH")"
+          zip -r ../../../../../build/appetize/Runner.app.zip Runner.app
+          cd -
+          
+          echo "✅ Simulator build ready for Appetize.io"
+          ls -lh build/appetize/
     artifacts:
-      - build/ios/iphonesimulator/Runner.app.zip
-      - build/ios/iphonesimulator/*.app
-      - /tmp/xcodebuild_logs/*.log
+      - build/appetize/Runner.app.zip
+      - build/ios/Build/Products/Debug-iphonesimulator/*.app
     publishing:
       email:
         recipients:
