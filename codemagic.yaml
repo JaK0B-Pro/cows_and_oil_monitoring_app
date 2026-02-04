@@ -5,10 +5,6 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m1
     environment:
-      android_signing:
-        - keystore_reference
-      groups:
-        - google_play # For Play Store deployment (optional)
       vars:
         PACKAGE_NAME: "com.oilmazout.tracker"
       flutter: stable
@@ -38,10 +34,6 @@ workflows:
         notify:
           success: true
           failure: true
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal # Options: internal, alpha, beta, production
-        submit_as_draft: true
 
   # iOS Workflow - For Appetize.io (Simulator Build)
   ios-simulator:
@@ -58,22 +50,27 @@ workflows:
       - name: Get Flutter packages
         script: | 
           flutter pub get
-      - name: Clean iOS build
+      - name: Clean and prepare iOS
         script: | 
           flutter clean
-          rm -rf ios/Pods
-          rm -rf ios/.symlinks
-          rm -rf ios/Flutter/Flutter.framework
-          rm -rf ios/Flutter/Flutter.podspec
-      - name: Install CocoaPods dependencies
+          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
+          rm -rf ~/Library/Caches/CocoaPods
+          rm -rf ~/.cocoapods/repos/trunk
+      - name: Generate iOS project files
+        script: | 
+          flutter precache --ios
+          flutter build ios-framework --debug
+      - name: Install CocoaPods
         script: | 
           cd ios
-          pod repo update
-          pod install --repo-update
+          pod cache clean --all
+          pod deintegrate || true
+          pod setup
+          pod install --verbose
           cd ..
       - name: Build iOS app for simulator
         script: | 
-          flutter build ios --simulator --debug --verbose
+          flutter build ios --simulator --debug
       - name: Create zip archive
         script: | 
           if [ -d "build/ios/iphonesimulator/Runner.app" ]; then
@@ -112,22 +109,27 @@ workflows:
       - name: Get Flutter packages
         script: | 
           flutter pub get
-      - name: Clean iOS build
+      - name: Clean and prepare iOS
         script: | 
           flutter clean
-          rm -rf ios/Pods
-          rm -rf ios/.symlinks
-          rm -rf ios/Flutter/Flutter.framework
-          rm -rf ios/Flutter/Flutter.podspec
-      - name: Install CocoaPods dependencies
+          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
+          rm -rf ~/Library/Caches/CocoaPods
+          rm -rf ~/.cocoapods/repos/trunk
+      - name: Generate iOS project files
+        script: | 
+          flutter precache --ios
+          flutter build ios-framework --debug
+      - name: Install CocoaPods
         script: | 
           cd ios
-          pod repo update
-          pod install --repo-update
+          pod cache clean --all
+          pod deintegrate || true
+          pod setup
+          pod install --verbose
           cd ..
       - name: Build iOS app for device (no codesign)
         script: | 
-          flutter build ios --debug --no-codesign --verbose
+          flutter build ios --debug --no-codesign
       - name: Create zip archive
         script: | 
           if [ -d "build/ios/iphoneos/Runner.app" ]; then
@@ -169,11 +171,6 @@ workflows:
           include: true
           source: true
     environment:
-      android_signing:
-        - keystore_reference
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.oilmazout.tracker
       vars:
         PACKAGE_NAME: "com.oilmazout.tracker"
       flutter: stable
@@ -192,19 +189,16 @@ workflows:
       - name: Build Android AAB
         script: | 
           flutter build appbundle --release
-      - name: Set up code signing for iOS
-        script: | 
-          xcode-project use-profiles
       - name: Install CocoaPods dependencies
         script: | 
-          find . -name "Podfile" -execdir pod install \;
-      - name: Build iOS IPA
+          cd ios && pod install --repo-update && cd ..
+      - name: Build iOS IPA (debug - no signing required)
         script: | 
-          flutter build ipa --release
+          flutter build ios --debug --no-codesign
     artifacts:
       - build/**/outputs/**/*.aab
       - build/**/outputs/**/*.apk
-      - build/ios/ipa/*.ipa
+      - build/ios/iphoneos/*.app
       - build/**/outputs/**/mapping.txt
     publishing:
       email:
